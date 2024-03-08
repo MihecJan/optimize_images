@@ -1,13 +1,32 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
+	var (
+		resizeArg  string
+		qualityArg string
+		toJPGArg   bool
+	)
+	flag.StringVar(&resizeArg, "resize", "1280x1280", "This will get passed on to magick -resize. Default is 1280x1280.")
+	flag.StringVar(&qualityArg, "quality", "80", "This will get passed on to magick -quality. Default is 80.")
+	flag.BoolVar(&toJPGArg, "toJPG", true, "Whether to also convert to JPG (If not JPG). Default: true.")
+
+	flag.Parse()
+
+	fmt.Println()
+	fmt.Println("Resize:", resizeArg)
+	fmt.Println("Quality:", qualityArg)
+	fmt.Println("+JPG:", toJPGArg)
+	fmt.Println()
+
 	// Create the 'optimized' subfolder if it doesn't exist
 	optimizedFolder := "optimized"
 	if err := os.Mkdir(optimizedFolder, 0755); err != nil && !os.IsExist(err) {
@@ -25,30 +44,62 @@ func main() {
 	// Optimize JPG files
 	for _, file := range jpgFiles {
 		fileCount++
-		fmt.Printf("Optimizing JPG file %d/%d: %s\n", fileCount, totalFiles, file)
-		if err := optimizeImage(file, optimizedFolder); err != nil {
+		outputFile := "optimized_" + file
+
+		fmt.Printf("%d/%d\tOptimizing JPG file\t%s -> %s\n", fileCount, totalFiles, file, outputFile)
+
+		if err := optimizeImage(file, resizeArg, qualityArg, false, optimizedFolder, outputFile); err != nil {
 			fmt.Println("Error optimizing JPG file:", err)
 		}
+
+		fmt.Println()
 	}
 
 	// Optimize PNG files
 	for _, file := range pngFiles {
 		fileCount++
-		fmt.Printf("Optimizing PNG file %d/%d: %s\n", fileCount, totalFiles, file)
-		if err := optimizeImage(file, optimizedFolder); err != nil {
+		outputFile := "optimized_" + filepath.Base(file)
+
+		fmt.Printf("%d/%d\tOptimizing PNG file\t%s -> %s\n", fileCount, totalFiles, file, outputFile)
+
+		if err := optimizeImage(file, resizeArg, qualityArg, toJPGArg, optimizedFolder, outputFile); err != nil {
 			fmt.Println("Error optimizing PNG file:", err)
 		}
+
+		fmt.Println()
 	}
 
 	fmt.Println("Optimization complete!")
 }
 
-func optimizeImage(filename, outputFolder string) error {
+func optimizeImage(filename, resize string, quality string, copyToJPG bool, outputFolder string, outputName string) error {
 	// Construct output filename with prefix
-	outputFilename := filepath.Join(outputFolder, "optimized_"+filepath.Base(filename))
+	outputFilename := filepath.Join(outputFolder, outputName)
 
 	// Run the conversion command
-	cmd := exec.Command("magick", "convert", filename, "-resize", "1280x1280", "-quality", "80", outputFilename)
+	cmd := exec.Command("magick", "convert", filename, "-resize", resize, "-quality", quality, outputFilename)
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	if copyToJPG {
+		if err := copyToJPGHelper(filename, resize, quality, outputFolder); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func copyToJPGHelper(filename, resize string, quality string, outputFolder string) error {
+	// Construct output filename with prefix
+	baseName := filepath.Base(filename)
+	newName := "optimized_toJPG_" + strings.TrimSuffix(baseName, filepath.Ext(baseName)) + ".jpg"
+	outputFilename := filepath.Join(outputFolder, newName)
+
+	fmt.Printf("\tConverting to JPG\t%s -> %s\n", filename, newName)
+
+	cmd := exec.Command("magick", "convert", filename, "-resize", resize, "-quality", quality, outputFilename)
 	if err := cmd.Run(); err != nil {
 		return err
 	}
