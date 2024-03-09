@@ -35,8 +35,15 @@ func main() {
 	}
 
 	// Get list of JPG and PNG files in current directory
-	jpgFiles, _ := filepath.Glob("*.jpg")
-	pngFiles, _ := filepath.Glob("*.png")
+	jpgFiles1, _ := filepath.Glob("*.jpg")
+	jpgFiles2, _ := filepath.Glob("*.JPG")
+	jpgFiles3, _ := filepath.Glob("*.jpeg")
+	jpgFiles4, _ := filepath.Glob("*.JPEG")
+	jpgFiles := append(append(append(jpgFiles1, jpgFiles2...), jpgFiles3...), jpgFiles4...)
+
+	pngFiles1, _ := filepath.Glob("*.png'")
+	pngFiles2, _ := filepath.Glob("*.PNG'")
+	pngFiles := append(pngFiles1, pngFiles2...)
 
 	totalFiles := len(jpgFiles) + len(pngFiles)
 	fileCount := 0
